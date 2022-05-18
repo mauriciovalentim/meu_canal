@@ -1,0 +1,105 @@
+---
+title: "Ações de Lojas de Roupas"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: scroll
+    runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(dplyr)
+library(tidyquant)
+library(ggplot2)
+library(plotly)
+library(DT)
+prices <- c(
+  "CEAB3","GUAR3","MGLU3",
+  "LREN3","CRFB3"
+) %>% 
+  paste0(".SA") %>%
+  tq_get(get="stock.prices",from="2010-01-01") %>%
+  mutate(symbol = sub(".SA","",symbol))
+  
+table_period <- data.frame(
+  period=c("1S","1M","3M","6M","1A","10A"),
+  days=c(7,30,90,180,360,3600)
+)
+```
+Column {.sidebar}
+--------
+
+```{r}
+selectInput(
+  "stock", label = "Escolha a ação:",
+  choices = c(
+    "CEAB3","GUAR3","MGLU3","LREN3","CRFB3"
+  )
+)
+selectInput(
+  "period", label = "Escolha o período:",
+  choices = c(
+    "1S","1M","3M","6M","1A","10A"
+  )
+)
+```
+
+Row {data-width=500}
+-----
+
+### Tendência
+
+```{r}
+renderPlotly({
+  period<-Sys.Date()-filter(table_period,
+  period==input$period)$days
+  
+  prices %>%
+    filter(date>=period,symbol==input$stock) %>% 
+    ggplot()+
+    aes(x=date,y=adjusted)+
+    geom_line()+
+    labs(x="",y="Cote")+
+    ggtitle(label=input$stock)+
+    theme(
+      panel.background = element_blank(),
+      plot.title = element_text(size=18)
+    )
+})
+```
+
+### Todas as tendências
+
+```{r}
+renderPlotly({
+  period<-Sys.Date()-filter(table_period,
+  period==input$period)$days
+  
+  prices %>%
+    filter(date>=period) %>% 
+    ggplot()+
+    aes(x=date,y=adjusted, color=symbol)+
+    geom_line(size=0.5)+
+    labs(x="",y="Cote",color="stock")+
+    theme(panel.background = element_blank())
+})
+```
+
+Row {data-width=500}
+-----
+
+
+### Cotações
+
+```{r}
+renderDataTable({
+  period<-Sys.Date()-filter(table_period,period==input$period)$days
+  
+  prices %>% 
+    filter(date>=period, symbol==input$stock) %>%
+    mutate(across(where(is.double),round,digits=2)) %>%
+    arrange(desc(date)) %>%
+    datatable(rownames=FALSE)
+})
+```
